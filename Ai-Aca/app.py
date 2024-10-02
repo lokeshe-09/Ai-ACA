@@ -117,7 +117,7 @@ class LlamaAIChain:
         chain = LLMChain(llm=self.llm, prompt=prompt, memory=self.memory)
 
         def operation():
-            return chain.run(question=question)
+            return chain.invoke(question=question)
 
         # Estimate token usage (this is a rough estimate, adjust as needed)
         estimated_tokens = len(question.split()) + 100  # Add some buffer for the prompt
