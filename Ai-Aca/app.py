@@ -14,7 +14,6 @@ import logging
 from collections import deque
 from datetime import datetime, timedelta
 import time
-import random
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -93,20 +92,16 @@ class LlamaAIChain:
             time.sleep(sleep_time)
 
     def _try_operation(self, operation_func, placeholder, required_tokens):
-        for i in range(len(self.api_keys)):
-            self._wait_for_token_availability(required_tokens)
-            logging.info(f"Attempting operation with API key {self.current_api_key_index}")
-            try:
-                result = operation_func()
-                self._update_token_usage(required_tokens)
-                logging.info(f"Operation successful with API key {self.current_api_key_index}")
-                return result, True
-            except Exception as e:
-                logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
-                self._switch_api_key((self.current_api_key_index + 1) % len(self.api_keys))
-                placeholder.markdown(get_random_waiting_message())
-        
-        return "I apologize, but I'm currently experiencing difficulties. Please try again later.", False
+        self._wait_for_token_availability(required_tokens)
+        logging.info(f"Attempting operation with API key {self.current_api_key_index}")
+        try:
+            result = operation_func()
+            self._update_token_usage(required_tokens)
+            logging.info(f"Operation successful with API key {self.current_api_key_index}")
+            return result, True
+        except Exception as e:
+            logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
+            return "I'm having trouble processing your request. Please refresh the page and try again.", False
 
     def ask_question(self, question, placeholder):
         prompt = PromptTemplate(
@@ -233,21 +228,6 @@ def set_page_config():
     </style>
     """, unsafe_allow_html=True)
 
-def get_random_waiting_message():
-    messages = [
-        "Hang tight! I'm working on your request...",
-        "Just a moment while I process that...",
-        "Your patience is appreciated. I'm crunching the data...",
-        "Almost there! This is an interesting query...",
-        "I'm putting my AI brain to work on your request...",
-        "Analyzing and formulating a response for you...",
-        "This is a great question! Let me think about it...",
-        "Processing... Your request is in good hands!",
-        "I'm diving deep into my knowledge base for this one...",
-        "Exciting query! I'm working on a thoughtful response..."
-    ]
-    return random.choice(messages)
-
 def chat_interface():
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
@@ -267,7 +247,6 @@ def chat_interface():
 
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
-            response_placeholder.markdown(get_random_waiting_message())
             with st.spinner("Processing..."):
                 if st.session_state.current_mode == "chat":
                     answer, success = st.session_state.llama_chain.ask_question(question, response_placeholder)
@@ -282,7 +261,7 @@ def chat_interface():
                         response_placeholder.image(image, caption="Generated Image", use_column_width=True)
                         st.session_state.chat_history.append({"role": "assistant", "type": "image", "content": image})
                     else:
-                        response_placeholder.markdown("I'm having trouble generating an image. Please try again later.")
+                        response_placeholder.markdown("I'm having trouble generating an image. Please refresh the page and try again.")
 
 def website_analysis_interface():
     url = st.text_input("Enter website URL:")
@@ -290,7 +269,6 @@ def website_analysis_interface():
     if st.button("Analyze"):
         if url and website_question:
             response_placeholder = st.empty()
-            response_placeholder.markdown(get_random_waiting_message())
             with st.spinner("Analyzing website..."):
                 analysis, success = st.session_state.llama_chain.analyze_website(url, website_question, response_placeholder)
                 if success:
