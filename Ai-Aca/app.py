@@ -467,7 +467,7 @@ def create_streamlit_app():
         if username and enter_button:
             logging.info(f"User {username} has entered the platform.")
             st.session_state.username = username
-            st.experimental_rerun()
+            st.rerun()
         return
 
     st.markdown(f'<h1 class="main-title">Welcome, {st.session_state.username}! 🎉</h1>', unsafe_allow_html=True)
