@@ -57,7 +57,7 @@ class LlamaAIChain:
         current_key = self.api_keys[self.current_api_key_index]
         now = datetime.now()
         self.token_usage[current_key].append((now, tokens))
-        
+
         # Remove entries older than 60 seconds
         while self.token_usage[current_key] and now - self.token_usage[current_key][0][0] > timedelta(seconds=60):
             self.token_usage[current_key].popleft()
@@ -67,14 +67,14 @@ class LlamaAIChain:
         # Remove entries older than 60 seconds
         while self.token_usage[api_key] and now - self.token_usage[api_key][0][0] > timedelta(seconds=60):
             self.token_usage[api_key].popleft()
-        
+
         used_tokens = sum(tokens for _, tokens in self.token_usage[api_key])
         return self.token_limits[api_key] - used_tokens
 
     def _get_best_api_key(self, required_tokens):
         available_tokens = [self._get_available_tokens(key) for key in self.api_keys]
         best_key_index = max(range(len(available_tokens)), key=lambda i: available_tokens[i])
-        
+
         if available_tokens[best_key_index] >= required_tokens:
             return best_key_index
         else:
@@ -86,7 +86,7 @@ class LlamaAIChain:
             if best_key_index is not None:
                 self._switch_api_key(best_key_index)
                 return
-            
+
             sleep_time = 1  # Wait for 1 second before checking again
             logging.info(f"Waiting for {sleep_time} seconds for token availability")
             time.sleep(sleep_time)
@@ -101,19 +101,7 @@ class LlamaAIChain:
             return result, True
         except Exception as e:
             logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
-            if "rate limit" in str(e).lower():
-                error_message = (
-                    "I apologize, but we've reached our processing limit for the moment. "
-                    "Please refresh the page and try again. While you wait, here are some interesting AI facts:\n\n"
-                    "1. Did you know that AI can now compose music in various styles?\n"
-                    "2. AI-powered robots are helping in search and rescue missions.\n"
-                    "3. Some AI models can generate realistic images from text descriptions.\n\n"
-                    "These advancements show how AI is continuously evolving to assist us in various fields. "
-                    "Please refresh the page when you're ready to continue our conversation!"
-                )
-            else:
-                error_message = f"I'm sorry, I couldn't process your request at the moment. Error: {str(e)}"
-            return error_message, False
+            return f"I'm sorry, I couldn't process your request at the moment. Error: {str(e)}", False
 
     def ask_question(self, question, placeholder):
         prompt = PromptTemplate(
@@ -121,19 +109,19 @@ class LlamaAIChain:
             template="Chat History:\n{history}\nHuman: {question}\n\nAI: Let me think about that and provide a helpful response."
         )
         chain = LLMChain(llm=self.llm, prompt=prompt, memory=self.memory)
-        
+
         def operation():
             return chain.run(question=question)
-        
+
         # Estimate token usage (this is a rough estimate, adjust as needed)
         estimated_tokens = len(question.split()) + 100  # Add some buffer for the prompt
-        
+
         return self._try_operation(operation, placeholder, estimated_tokens)
 
     def analyze_website(self, url, question, placeholder):
         loader = WebBaseLoader([url])
         data = clean_text(loader.load()[0].page_content)
-        
+
         prompt = PromptTemplate(
             input_variables=["website_content", "question"],
             template="""
@@ -148,15 +136,15 @@ class LlamaAIChain:
             Provide a detailed and informative answer based on the website content:
             """
         )
-        
+
         chain = LLMChain(llm=self.llm, prompt=prompt)
-        
+
         def operation():
             return chain.run(website_content=data, question=question)
-        
+
         # Estimate token usage (this is a rough estimate, adjust as needed)
         estimated_tokens = len(data.split()) + len(question.split()) + 200  # Add some buffer for the prompt
-        
+
         return self._try_operation(operation, placeholder, estimated_tokens)
 
 def set_page_config():
@@ -237,13 +225,6 @@ def set_page_config():
         font-weight: bold;
         margin-left: 10px;
     }
-    .error-message {
-        background-color: #ffe6e6;
-        border-left: 5px solid #ff6666;
-        padding: 10px;
-        margin-top: 10px;
-        border-radius: 5px;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -273,14 +254,14 @@ def chat_interface():
                         response_placeholder.markdown(answer)
                         st.session_state.chat_history.append({"role": "assistant", "type": "text", "content": answer})
                     else:
-                        response_placeholder.markdown(f'<div class="error-message">{answer}</div>', unsafe_allow_html=True)
+                        response_placeholder.markdown(answer)
                 else:
                     image = generate_image(question)
                     if image:
                         response_placeholder.image(image, caption="Generated Image", use_column_width=True)
                         st.session_state.chat_history.append({"role": "assistant", "type": "image", "content": image})
                     else:
-                        response_placeholder.markdown('<div class="error-message">I\'m sorry, I couldn\'t generate an image at the moment. Please try again later.</div>', unsafe_allow_html=True)
+                        response_placeholder.markdown("I'm sorry, I couldn't generate an image at the moment. Please try again later.")
 
 def website_analysis_interface():
     url = st.text_input("Enter website URL:")
@@ -295,7 +276,7 @@ def website_analysis_interface():
                     st.write("Analysis:", analysis)
                     st.markdown("</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<div class="error-message">{analysis}</div>', unsafe_allow_html=True)
+                    st.markdown(analysis)
         else:
             st.warning("Please enter both a URL and a question.")
 
@@ -318,7 +299,7 @@ def generate_image(prompt):
 
 def create_streamlit_app():
     set_page_config()
-    
+
     if 'llama_chain' not in st.session_state:
         st.session_state.llama_chain = LlamaAIChain()
 
@@ -350,7 +331,7 @@ def create_streamlit_app():
     """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
-    
+
     # Only show the swap chat/image button when in chat interface
     if st.session_state.current_interface == "chat":
         with col1:
@@ -360,12 +341,12 @@ def create_streamlit_app():
             else:
                 mode_label = "Image Generator 🖼️"
                 swap_label = "🔄Swap to Interact with AI ACA 🤖"
-            
+
             st.markdown(f'<span class="mode-indicator">{mode_label}</span>', unsafe_allow_html=True)
             if st.button(swap_label, key="swap_mode", help="Switch between chat and image generation"):
                 st.session_state.current_mode = "image" if st.session_state.current_mode == "chat" else "chat"
                 st.rerun()
-    
+
     with col2:
         button_label = "Switch to Web Analyzer" if st.session_state.current_interface == "chat" else "Switch to Chat with AI"
         if st.button(button_label, key="swap_interface"):
