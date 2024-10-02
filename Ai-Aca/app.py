@@ -101,7 +101,7 @@ class LlamaAIChain:
             return result, True
         except Exception as e:
             logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
-            return f"I'm sorry, I couldn't process your request at the moment. Error: {str(e)}", False
+            return "I'm having trouble processing your request. Please refresh the page and try again.", False
 
     def ask_question(self, question, placeholder):
         prompt = PromptTemplate(
@@ -261,7 +261,7 @@ def chat_interface():
                         response_placeholder.image(image, caption="Generated Image", use_column_width=True)
                         st.session_state.chat_history.append({"role": "assistant", "type": "image", "content": image})
                     else:
-                        response_placeholder.markdown("I'm sorry, I couldn't generate an image at the moment. Please try again later.")
+                        response_placeholder.markdown("I'm having trouble generating an image. Please refresh the page and try again.")
 
 def website_analysis_interface():
     url = st.text_input("Enter website URL:")
