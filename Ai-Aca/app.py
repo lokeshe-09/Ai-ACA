@@ -69,7 +69,7 @@ class LlamaAIChain:
             self.token_usage[api_key].popleft()
         
         used_tokens = sum(tokens for _, tokens in self.token_usage[api_key])
-        return self.token_limits[api_key] - used_tokens
+        return max(0, self.token_limits[api_key] - used_tokens)
 
     def _get_best_api_key(self, required_tokens):
         available_tokens = [self._get_available_tokens(key) for key in self.api_keys]
@@ -97,12 +97,24 @@ class LlamaAIChain:
             try:
                 self._wait_for_token_availability(required_tokens)
                 result = operation_func()
-                self._update_token_usage(required_tokens)
+                self._update_token_usage(min(required_tokens, self._get_available_tokens(self.api_keys[self.current_api_key_index])))
                 self.error_count = 0  # Reset error count on successful operation
                 return result, True
             except Exception as e:
                 self.error_count += 1
                 logging.error(f"Attempt {self.error_count} failed: {str(e)}")
+                
+                if "Rate limit reached" in str(e):
+                    wait_time = re.search(r"Please try again in (\d+\.\d+)s", str(e))
+                    if wait_time:
+                        wait_seconds = float(wait_time.group(1))
+                        placeholder.markdown(f"""
+                        🕒 I'm processing your request. Please wait for {wait_seconds:.2f} seconds...
+                        
+                        I'll automatically continue once the waiting period is over.
+                        """)
+                        time.sleep(wait_seconds + 1)  # Add 1 second buffer
+                        continue
                 
                 if self.error_count < self.max_retries:
                     placeholder.markdown(f"""
@@ -115,9 +127,7 @@ class LlamaAIChain:
                     error_message = f"""
                     📝 I apologize, but I'm having trouble processing your request at the moment.
                     
-                    Would you mind:
-                    1. Refreshing the page
-                    2. Trying again in a few moments
+                    Please try refreshing the page and trying again in a few moments.
                     
                     Our team has been notified and is working to resolve any issues.
                     
@@ -319,9 +329,7 @@ def chat_interface():
                         response_placeholder.markdown("""
                         🎨 I apologize, but I'm having trouble generating the image at the moment.
                         
-                        Would you mind:
-                        1. Refreshing the page
-                        2. Trying again in a few moments
+                        Please try refreshing the page and trying again in a few moments.
                         
                         Our team has been notified and is working to resolve any issues.
                         
@@ -377,8 +385,6 @@ def create_streamlit_app():
     """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
-
-    col1, col2 = st.columns(2)
     
     # Only show the swap chat/image button when in chat interface
     if st.session_state.current_interface == "chat":
@@ -396,7 +402,6 @@ def create_streamlit_app():
         if st.button(button_label, key="swap_interface"):
             st.session_state.current_interface = "website" if st.session_state.current_interface == "chat" else "chat"
             st.rerun()
-            
+
 if __name__ == "__main__":
     create_streamlit_app()
-    
