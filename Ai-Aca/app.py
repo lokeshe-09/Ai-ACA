@@ -15,7 +15,6 @@ from collections import deque
 from datetime import datetime, timedelta
 import time
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -39,8 +38,10 @@ class LlamaAIChain:
         self.current_api_key_index = 0
         self.llm = self._create_llm()
         self.memory = ConversationBufferMemory(return_messages=True)
-        self.token_limits = {key: 20000 for key in self.api_keys}  # 20k tokens per minute limit
-        self.token_usage = {key: deque(maxlen=60) for key in self.api_keys}  # Track usage for last 60 seconds
+        self.token_limits = {key: 20000 for key in self.api_keys}
+        self.token_usage = {key: deque(maxlen=60) for key in self.api_keys}
+        self.error_count = 0
+        self.max_retries = 3
 
     def _create_llm(self):
         return ChatGroq(
@@ -59,13 +60,11 @@ class LlamaAIChain:
         now = datetime.now()
         self.token_usage[current_key].append((now, tokens))
         
-        # Remove entries older than 60 seconds
         while self.token_usage[current_key] and now - self.token_usage[current_key][0][0] > timedelta(seconds=60):
             self.token_usage[current_key].popleft()
 
     def _get_available_tokens(self, api_key):
         now = datetime.now()
-        # Remove entries older than 60 seconds
         while self.token_usage[api_key] and now - self.token_usage[api_key][0][0] > timedelta(seconds=60):
             self.token_usage[api_key].popleft()
         
@@ -88,21 +87,45 @@ class LlamaAIChain:
                 self._switch_api_key(best_key_index)
                 return
             
-            sleep_time = 1  # Wait for 1 second before checking again
+            sleep_time = 1
             logging.info(f"Waiting for {sleep_time} seconds for token availability")
             time.sleep(sleep_time)
 
     def _try_operation(self, operation_func, placeholder, required_tokens):
-        self._wait_for_token_availability(required_tokens)
-        logging.info(f"Attempting operation with API key {self.current_api_key_index}")
-        try:
-            result = operation_func()
-            self._update_token_usage(required_tokens)
-            logging.info(f"Operation successful with API key {self.current_api_key_index}")
-            return result, True
-        except Exception as e:
-            logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
-            return f"I'm sorry, I couldn't process your request at the moment. Error: {str(e)}", False
+        self.error_count = 0
+        while self.error_count < self.max_retries:
+            try:
+                self._wait_for_token_availability(required_tokens)
+                result = operation_func()
+                self._update_token_usage(required_tokens)
+                self.error_count = 0  # Reset error count on successful operation
+                return result, True
+            except Exception as e:
+                self.error_count += 1
+                logging.error(f"Attempt {self.error_count} failed: {str(e)}")
+                
+                if self.error_count < self.max_retries:
+                    placeholder.markdown(f"""
+                    🔄 I apologize for the delay. I'm experiencing a temporary issue, but I'm trying again...
+                    
+                    Attempt {self.error_count + 1} of {self.max_retries}
+                    """)
+                    time.sleep(2)  # Wait before retrying
+                else:
+                    error_message = f"""
+                    📝 I apologize, but I'm having trouble processing your request at the moment.
+                    
+                    Would you mind:
+                    1. Refreshing the page
+                    2. Trying again in a few moments
+                    
+                    Our team has been notified and is working to resolve any issues.
+                    
+                    Thank you for your patience! 🙏
+                    """
+                    return error_message, False
+        
+        return "An unexpected error occurred. Please refresh the page and try again.", False
 
     def ask_question(self, question, placeholder):
         prompt = PromptTemplate(
@@ -114,39 +137,72 @@ class LlamaAIChain:
         def operation():
             return chain.run(question=question)
         
-        # Estimate token usage (this is a rough estimate, adjust as needed)
-        estimated_tokens = len(question.split()) + 100  # Add some buffer for the prompt
+        estimated_tokens = len(question.split()) + 100
         
         return self._try_operation(operation, placeholder, estimated_tokens)
 
     def analyze_website(self, url, question, placeholder):
-        loader = WebBaseLoader([url])
-        data = clean_text(loader.load()[0].page_content)
-        
-        prompt = PromptTemplate(
-            input_variables=["website_content", "question"],
-            template="""
-            Analyze the following website content and answer the user's question:
+        try:
+            loader = WebBaseLoader([url])
+            data = clean_text(loader.load()[0].page_content)
+            
+            prompt = PromptTemplate(
+                input_variables=["website_content", "question"],
+                template="""
+                Analyze the following website content and answer the user's question:
 
-            Website Content:
-            {website_content}
+                Website Content:
+                {website_content}
 
-            User's Question:
-            {question}
+                User's Question:
+                {question}
 
-            Provide a detailed and informative answer based on the website content:
-            """
-        )
-        
-        chain = LLMChain(llm=self.llm, prompt=prompt)
-        
-        def operation():
-            return chain.run(website_content=data, question=question)
-        
-        # Estimate token usage (this is a rough estimate, adjust as needed)
-        estimated_tokens = len(data.split()) + len(question.split()) + 200  # Add some buffer for the prompt
-        
-        return self._try_operation(operation, placeholder, estimated_tokens)
+                Provide a detailed and informative answer based on the website content:
+                """
+            )
+            
+            chain = LLMChain(llm=self.llm, prompt=prompt)
+            
+            def operation():
+                return chain.run(website_content=data, question=question)
+            
+            estimated_tokens = len(data.split()) + len(question.split()) + 200
+            
+            return self._try_operation(operation, placeholder, estimated_tokens)
+        except Exception as e:
+            logging.error(f"Error loading website: {str(e)}")
+            return """
+            🌐 I apologize, but I couldn't access that website at the moment.
+            
+            This might be because:
+            - The URL might be incorrect
+            - The website might be temporarily unavailable
+            - The website might be blocking automated access
+            
+            Would you mind:
+            1. Double-checking the URL
+            2. Trying again in a few moments
+            3. Perhaps trying a different website
+            
+            Thank you for your understanding! 🙏
+            """, False
+
+def generate_image(prompt):
+    API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev"
+    headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
+
+    def query(payload):
+        response = requests.post(API_URL, headers=headers, json=payload)
+        return response.content
+
+    try:
+        image_bytes = query({
+            "inputs": prompt,
+        })
+        return Image.open(io.BytesIO(image_bytes))
+    except Exception as e:
+        logging.error(f"Error in generate_image: {str(e)}")
+        return None
 
 def set_page_config():
     st.set_page_config(page_title="AI ACA", page_icon="✨", layout="wide", menu_items=None)
@@ -251,18 +307,26 @@ def chat_interface():
             with st.spinner("Processing..."):
                 if st.session_state.current_mode == "chat":
                     answer, success = st.session_state.llama_chain.ask_question(question, response_placeholder)
+                    response_placeholder.markdown(answer)
                     if success:
-                        response_placeholder.markdown(answer)
                         st.session_state.chat_history.append({"role": "assistant", "type": "text", "content": answer})
-                    else:
-                        response_placeholder.markdown(answer)
                 else:
                     image = generate_image(question)
                     if image:
                         response_placeholder.image(image, caption="Generated Image", use_column_width=True)
                         st.session_state.chat_history.append({"role": "assistant", "type": "image", "content": image})
                     else:
-                        response_placeholder.markdown("I'm sorry, I couldn't generate an image at the moment. Please try again later.")
+                        response_placeholder.markdown("""
+                        🎨 I apologize, but I'm having trouble generating the image at the moment.
+                        
+                        Would you mind:
+                        1. Refreshing the page
+                        2. Trying again in a few moments
+                        
+                        Our team has been notified and is working to resolve any issues.
+                        
+                        Thank you for your patience! 🙏
+                        """)
 
 def website_analysis_interface():
     url = st.text_input("Enter website URL:")
@@ -281,23 +345,6 @@ def website_analysis_interface():
         else:
             st.warning("Please enter both a URL and a question.")
 
-def generate_image(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev"
-    headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
-
-    def query(payload):
-        response = requests.post(API_URL, headers=headers, json=payload)
-        return response.content
-
-    try:
-        image_bytes = query({
-            "inputs": prompt,
-        })
-        return Image.open(io.BytesIO(image_bytes))
-    except Exception as e:
-        logging.error(f"Error in generate_image: {str(e)}")
-        return None
-
 def create_streamlit_app():
     set_page_config()
     
@@ -315,7 +362,6 @@ def create_streamlit_app():
 
     st.markdown("<h1 class='main-title'>✨ AI Platform by Ai Craft Alchemy</h1>", unsafe_allow_html=True)
 
-    # Main content area
     if st.session_state.current_interface == "chat":
         st.markdown("<h2 class='section-title'>Interact with AI ACA</h2>", unsafe_allow_html=True)
         chat_interface()
@@ -323,7 +369,6 @@ def create_streamlit_app():
         st.markdown("<h2 class='section-title'>Analyze Website</h2>", unsafe_allow_html=True)
         website_analysis_interface()
 
-    # Footer with swap buttons
     st.markdown("""
     <div class='footer'>
     Developed by <a href='https://aicraftalchemy.github.io'>Ai Craft Alchemy</a><br>
@@ -332,16 +377,14 @@ def create_streamlit_app():
     """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
+
+    col1, col2 = st.columns(2)
     
     # Only show the swap chat/image button when in chat interface
     if st.session_state.current_interface == "chat":
         with col1:
-            if st.session_state.current_mode == "chat":
-                mode_label = "AI Chat 🤖"
-                swap_label = "🔄Swap for Image Generator 🖼️"
-            else:
-                mode_label = "Image Generator 🖼️"
-                swap_label = "🔄Swap to Interact with AI ACA 🤖"
+            mode_label = "AI Chat 🤖" if st.session_state.current_mode == "chat" else "Image Generator 🖼️"
+            swap_label = "🔄Swap for Image Generator 🖼️" if st.session_state.current_mode == "chat" else "🔄Swap to Interact with AI ACA 🤖"
             
             st.markdown(f'<span class="mode-indicator">{mode_label}</span>', unsafe_allow_html=True)
             if st.button(swap_label, key="swap_mode", help="Switch between chat and image generation"):
