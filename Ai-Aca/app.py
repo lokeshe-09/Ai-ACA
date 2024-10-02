@@ -155,7 +155,7 @@ def set_page_config():
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stApp {
-        max-width: 100vu;
+        max-width: 100uv;
         margin: 0 auto;
         font-family: Arial, sans-serif;
     }
