@@ -295,9 +295,13 @@ def set_page_config():
 def welcome_screen():
     st.markdown('<h1 class="main-title">Welcome to AI ACA ✨</h1>', unsafe_allow_html=True)
     
-    username = st.text_input("", key="welcome_input", 
-                             placeholder="Enter your AI persona (e.g., QuantumDreamer42)",
-                             help="Your unique identifier in the AI ACA universe")
+    username = st.text_input(
+        label="Username",  # Add a non-empty label
+        key="welcome_input", 
+        placeholder="Enter your AI persona (e.g., QuantumDreamer42)",
+        help="Your unique identifier in the AI ACA universe",
+        label_visibility="collapsed"  # Hide the label visually
+    )
     
     enter_button = st.button("🚀 Launch Your AI Journey", key="enter_button")
     
