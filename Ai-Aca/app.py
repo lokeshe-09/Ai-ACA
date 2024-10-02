@@ -1,5 +1,5 @@
-import os
 import streamlit as st
+import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_groq import ChatGroq
@@ -14,6 +14,8 @@ import logging
 from collections import deque
 from datetime import datetime, timedelta
 import time
+import random
+import streamlit.components.v1 as components
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,7 +25,7 @@ load_dotenv()
 
 def clean_text(text):
     text = re.sub(r'<[^>]*?>', '', text)
-    text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', text)
+    text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*$$$$,]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', text)
     text = re.sub(r'[^\w\s]', '', text)
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
@@ -92,16 +94,20 @@ class LlamaAIChain:
             time.sleep(sleep_time)
 
     def _try_operation(self, operation_func, placeholder, required_tokens):
-        self._wait_for_token_availability(required_tokens)
-        logging.info(f"Attempting operation with API key {self.current_api_key_index}")
-        try:
-            result = operation_func()
-            self._update_token_usage(required_tokens)
-            logging.info(f"Operation successful with API key {self.current_api_key_index}")
-            return result, True
-        except Exception as e:
-            logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
-            return "I'm having trouble processing your request. Please refresh the page and try again.", False
+        for i in range(len(self.api_keys)):
+            self._wait_for_token_availability(required_tokens)
+            logging.info(f"Attempting operation with API key {self.current_api_key_index}")
+            try:
+                result = operation_func()
+                self._update_token_usage(required_tokens)
+                logging.info(f"Operation successful with API key {self.current_api_key_index}")
+                return result, True
+            except Exception as e:
+                logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
+                if i < len(self.api_keys) - 1:
+                    self._switch_api_key((self.current_api_key_index + 1) % len(self.api_keys))
+                else:
+                    return "I apologize, but I'm currently experiencing technical difficulties. Please try again later.", False
 
     def ask_question(self, question, placeholder):
         prompt = PromptTemplate(
@@ -154,79 +160,210 @@ def set_page_config():
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+    @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
+    
+    body {
+        font-family: 'Roboto', sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #ffffff;
+    }
+    
     .stApp {
-        max-width: 100uv;
-        margin: 0 auto;
-        font-family: Arial, sans-serif;
+        
     }
+    
+    #MainMenu, footer, header {display: none;}
+    
     .main-title {
-        color: #4a4a4a;
+        font-size: 4rem;
+        font-weight: 700;
         text-align: center;
-        margin-bottom: 30px;
+        margin-bottom: 2rem;
+        background: linear-gradient(to right, #ff6b6b, #4ecdc4);
+        -webkit-background-clip: text;
     }
-    .section-title {
-        color: #2c3e50;
-        margin-top: 30px;
-        margin-bottom: 20px;
+    
+    @keyframes title-glow {
+        from {
+            text-shadow: 0 0 5px #ff6b6b, 0 0 10px #ff6b6b, 0 0 15px #ff6b6b, 0 0 20px #ff6b6b;
+        }
+        to {
+            text-shadow: 0 0 10px #4ecdc4, 0 0 20px #4ecdc4, 0 0 30px #4ecdc4, 0 0 40px #4ecdc4;
+        }
     }
-    .response-area {
-        background-color: #f0f0f0;
-        border-radius: 10px;
-        padding: 20px;
-        margin-top: 20px;
+    
+    .welcome-container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
     }
-    .stTextInput>div>div>textarea {
-        min-height: 100px;
+    
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
     }
-    .chat-message {
-        padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1rem; display: flex
+    
+    .feature-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 1.5rem;
+        border-radius: 15px;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    .chat-message.user {
-        background-color: #2b313e
+    
+    .feature-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     }
-    .chat-message.bot {
-        background-color: #475063
+    
+    .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
     }
-    .chat-message .avatar {
-      width: 20%;
+    
+    .username-input {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 25px;
+        padding: 0.75rem 1.5rem;
+        font-size: 1.1rem;
+        color: #ffffff;
+        width: 100%;
+        max-width: 400px;
+        margin: 2rem auto;
+        display: block;
     }
-    .chat-message .avatar img {
-      max-width: 78px;
-      max-height: 78px;
-      border-radius: 50%;
-      object-fit: cover;
+    
+    .username-input::placeholder {
+        color: rgba(255, 255, 255, 0.7);
     }
-    .chat-message .message {
-      width: 80%;
-      padding: 0 1.5rem;
-      color: #fff;
+    
+    .enter-button {
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        display: block;
+        margin: 0 auto;
     }
+    
+    .enter-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
     .footer {
         text-align: center;
-        padding: 20px 0;
+        padding: 5px 0;
         font-size: 14px;
         color: #666;
         border-top: 1px solid #eee;
-        margin-top: 40px;
+        margin-top: 80px;
     }
-    .swap-button {
-        margin-top: 10px;
+    
+    .particle {
+        position: absolute;
+        background: white;
+        border-radius: 50%;
+        pointer-events: none;
+        opacity: 0.5;
     }
-    .input-container {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    .mode-label {
-        font-weight: bold;
-        margin-right: 10px;
-    }
-    .mode-indicator {
-        font-weight: bold;
-        margin-left: 10px;
+    
+    @keyframes float-up {
+        0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-100vh) rotate(360deg);
+            opacity: 0;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
+
+def welcome_screen():
+    st.markdown('<h1 class="main-title">Welcome to AI ACA ✨</h1>', unsafe_allow_html=True)
+    
+    username = st.text_input("", key="welcome_input", 
+                             placeholder="Enter your AI persona (e.g., QuantumDreamer42)",
+                             help="Your unique identifier in the AI ACA universe")
+    
+    enter_button = st.button("🚀 Launch Your AI Journey", key="enter_button")
+    
+    st.markdown("""
+    <p style="font-size: 1.2rem; text-align: center; margin-bottom: 2rem;">
+        Embark on an extraordinary journey through the realms of artificial intelligence! 🚀
+        AI ACA is your gateway to a world where imagination meets innovation.
+    </p>
+    
+    <div class="feature-grid">
+        <div class="feature-item">
+            <i class="fas fa-robot feature-icon" style="color: #ff6b6b;"></i>
+            <h3>AI Chat 💬</h3>
+            <p>Engage in mind-bending conversations with our advanced AI. Unlock knowledge and spark creativity!</p>
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-image feature-icon" style="color: #4ecdc4;"></i>
+            <h3>Image Generation 🎨</h3>
+            <p>Transform your wildest ideas into stunning visuals. Watch your imagination come to life!</p>
+        </div>
+        <div class="feature-item">
+            <i class="fas fa-globe feature-icon" style="color: #45aaf2;"></i>
+            <h3>Website Analysis 🔍</h3>
+            <p>Uncover hidden insights from any website. Let AI be your digital detective!</p>
+        </div>
+    </div>
+    
+    <p style="font-size: 1.2rem; text-align: center; margin-top: 2rem;">
+        Ready to dive into the future? Create your unique AI persona and let the adventure begin! 🌟
+    </p>
+    """, unsafe_allow_html=True)
+    
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Add floating particles
+    st.markdown("""
+    <script>
+    function createParticle() {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        document.body.appendChild(particle);
+        
+        const size = Math.random() * 5 + 5;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        
+        const startX = Math.random() * window.innerWidth;
+        particle.style.left = `${startX}px`;
+        particle.style.bottom = '-20px';
+        
+        const duration = Math.random() * 3 + 2;
+        particle.style.animation = `float-up ${duration}s linear infinite`;
+        
+        setTimeout(() => {
+            particle.remove();
+        }, duration * 1000);
+    }
+    
+    setInterval(createParticle, 200);
+    </script>
+    """,
+    unsafe_allow_html=True
+    )
+    
+    return username, enter_button
 
 def chat_interface():
     for message in st.session_state.chat_history:
@@ -236,9 +373,7 @@ def chat_interface():
             elif message["type"] == "image":
                 st.image(message["content"], caption="Generated Image", use_column_width=True)
 
-    st.markdown('<div class="input-container">', unsafe_allow_html=True)
     question = st.chat_input("Enter your question or image prompt:")
-    st.markdown('</div>', unsafe_allow_html=True)
 
     if question:
         with st.chat_message("user"):
@@ -247,7 +382,7 @@ def chat_interface():
 
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
-            with st.spinner("Processing..."):
+            with st.spinner(get_random_processing_message()):
                 if st.session_state.current_mode == "chat":
                     answer, success = st.session_state.llama_chain.ask_question(question, response_placeholder)
                     if success:
@@ -261,7 +396,7 @@ def chat_interface():
                         response_placeholder.image(image, caption="Generated Image", use_column_width=True)
                         st.session_state.chat_history.append({"role": "assistant", "type": "image", "content": image})
                     else:
-                        response_placeholder.markdown("I'm having trouble generating an image. Please refresh the page and try again.")
+                        response_placeholder.markdown('I apologize, but I\'m currently experiencing difficulties generating an image. Please try again later.')
 
 def website_analysis_interface():
     url = st.text_input("Enter website URL:")
@@ -269,10 +404,10 @@ def website_analysis_interface():
     if st.button("Analyze"):
         if url and website_question:
             response_placeholder = st.empty()
-            with st.spinner("Analyzing website..."):
+            with st.spinner(get_random_processing_message()):
                 analysis, success = st.session_state.llama_chain.analyze_website(url, website_question, response_placeholder)
                 if success:
-                    st.markdown("<div class='response-area'>", unsafe_allow_html=True)
+                    st.markdown('<div class="response-area">', unsafe_allow_html=True)
                     st.write("Analysis:", analysis)
                     st.markdown("</div>", unsafe_allow_html=True)
                 else:
@@ -297,6 +432,21 @@ def generate_image(prompt):
         logging.error(f"Error in generate_image: {str(e)}")
         return None
 
+def get_random_processing_message():
+    messages = [
+        "Brewing some AI magic... ✨",
+        "Consulting the digital oracle... 🔮",
+        "Crunching numbers at light speed... 💡",
+        "Decoding the matrix... 🧠",
+        "Summoning digital wisdom... 📚",
+        "Channeling the power of AI... ⚡",
+        "Weaving a tapestry of knowledge... 🕸️",
+        "Diving into the data ocean... 🌊",
+        "Igniting the neural networks... 🔥",
+        "Embarking on a digital quest... 🗺️"
+    ]
+    return random.choice(messages)
+
 def create_streamlit_app():
     set_page_config()
 
@@ -312,14 +462,22 @@ def create_streamlit_app():
     if 'current_mode' not in st.session_state:
         st.session_state.current_mode = "chat"
 
-    st.markdown("<h1 class='main-title'>✨ AI Platform by Ai Craft Alchemy</h1>", unsafe_allow_html=True)
+    if 'username' not in st.session_state:
+        username, enter_button = welcome_screen()
+        if username and enter_button:
+            logging.info(f"User {username} has entered the platform.")
+            st.session_state.username = username
+            st.experimental_rerun()
+        return
+
+    st.markdown(f'<h1 class="main-title">Welcome, {st.session_state.username}! 🎉</h1>', unsafe_allow_html=True)
 
     # Main content area
     if st.session_state.current_interface == "chat":
-        st.markdown("<h2 class='section-title'>Interact with AI ACA</h2>", unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Interact with AI ACA</h2>', unsafe_allow_html=True)
         chat_interface()
     else:
-        st.markdown("<h2 class='section-title'>Analyze Website</h2>", unsafe_allow_html=True)
+        st.markdown('<h2 class="section-title">Analyze Website</h2>', unsafe_allow_html=True)
         website_analysis_interface()
 
     # Footer with swap buttons
@@ -330,26 +488,47 @@ def create_streamlit_app():
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([3, 1])
 
     # Only show the swap chat/image button when in chat interface
     if st.session_state.current_interface == "chat":
         with col1:
             if st.session_state.current_mode == "chat":
                 mode_label = "AI Chat 🤖"
-                swap_label = "🔄Swap for Image Generator 🖼️"
+                swap_label = "🔄 Swap to Image Generator 🖼️"
             else:
                 mode_label = "Image Generator 🖼️"
-                swap_label = "🔄Swap to Interact with AI ACA 🤖"
+                swap_label = "🔄 Swap to AI Chat 🤖"
 
-            st.markdown(f'<span class="mode-indicator">{mode_label}</span>', unsafe_allow_html=True)
-            if st.button(swap_label, key="swap_mode", help="Switch between chat and image generation"):
+            st.markdown(f'<p style="text-align: left ; font-weight: bold;">{mode_label}</p>', unsafe_allow_html=True)
+            
+            st.markdown(f"""
+            <style>
+                .button1 {{
+                    margin-top: 30px;  /* Move the button 20px down */
+                }}
+            </style>
+        """, unsafe_allow_html=True)
+            
+            if st.button(swap_label, key="swap_mode", help="Switch between chat and image generation", args=('button1')):
                 st.session_state.current_mode = "image" if st.session_state.current_mode == "chat" else "chat"
                 st.rerun()
 
-    with col2:
-        button_label = "Switch to Web Analyzer" if st.session_state.current_interface == "chat" else "Switch to Chat with AI"
-        if st.button(button_label, key="swap_interface"):
+    with col2:            
+        button_label = "🔄 Switch to Web Analyzer" if st.session_state.current_interface == "chat" else "🔄 Switch to Chat with AI"
+        st.markdown(f"""
+        <style>
+            .button2 {{
+                position: relative;  /* Use relative positioning to adjust */
+                margin-top: 30px;  /* Move down */
+                margin-left: 30px; /* Move right or left */
+                margin-right: 50px; /* Adjust the right margin */
+                padding: 10px; /* Adjust padding inside the button */
+            }}
+        </style>
+    """, unsafe_allow_html=True)
+        
+        if st.button(button_label, key="swap_interface", help="Switch between chat and website analysis", args=('button2')):
             st.session_state.current_interface = "website" if st.session_state.current_interface == "chat" else "chat"
             st.rerun()
 
