@@ -15,7 +15,6 @@ from collections import deque
 from datetime import datetime, timedelta
 import time
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -102,7 +101,19 @@ class LlamaAIChain:
             return result, True
         except Exception as e:
             logging.error(f"Error with API key {self.current_api_key_index}: {str(e)}")
-            return f"I'm sorry, I couldn't process your request at the moment. Error: {str(e)}", False
+            if "rate limit" in str(e).lower():
+                error_message = (
+                    "I apologize, but we've reached our processing limit for the moment. "
+                    "Please refresh the page and try again. While you wait, here are some interesting AI facts:\n\n"
+                    "1. Did you know that AI can now compose music in various styles?\n"
+                    "2. AI-powered robots are helping in search and rescue missions.\n"
+                    "3. Some AI models can generate realistic images from text descriptions.\n\n"
+                    "These advancements show how AI is continuously evolving to assist us in various fields. "
+                    "Please refresh the page when you're ready to continue our conversation!"
+                )
+            else:
+                error_message = f"I'm sorry, I couldn't process your request at the moment. Error: {str(e)}"
+            return error_message, False
 
     def ask_question(self, question, placeholder):
         prompt = PromptTemplate(
@@ -226,6 +237,13 @@ def set_page_config():
         font-weight: bold;
         margin-left: 10px;
     }
+    .error-message {
+        background-color: #ffe6e6;
+        border-left: 5px solid #ff6666;
+        padding: 10px;
+        margin-top: 10px;
+        border-radius: 5px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -255,14 +273,14 @@ def chat_interface():
                         response_placeholder.markdown(answer)
                         st.session_state.chat_history.append({"role": "assistant", "type": "text", "content": answer})
                     else:
-                        response_placeholder.markdown(answer)
+                        response_placeholder.markdown(f'<div class="error-message">{answer}</div>', unsafe_allow_html=True)
                 else:
                     image = generate_image(question)
                     if image:
                         response_placeholder.image(image, caption="Generated Image", use_column_width=True)
                         st.session_state.chat_history.append({"role": "assistant", "type": "image", "content": image})
                     else:
-                        response_placeholder.markdown("I'm sorry, I couldn't generate an image at the moment. Please try again later.")
+                        response_placeholder.markdown('<div class="error-message">I\'m sorry, I couldn\'t generate an image at the moment. Please try again later.</div>', unsafe_allow_html=True)
 
 def website_analysis_interface():
     url = st.text_input("Enter website URL:")
@@ -277,7 +295,7 @@ def website_analysis_interface():
                     st.write("Analysis:", analysis)
                     st.markdown("</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown(analysis)
+                    st.markdown(f'<div class="error-message">{analysis}</div>', unsafe_allow_html=True)
         else:
             st.warning("Please enter both a URL and a question.")
 
@@ -353,7 +371,6 @@ def create_streamlit_app():
         if st.button(button_label, key="swap_interface"):
             st.session_state.current_interface = "website" if st.session_state.current_interface == "chat" else "chat"
             st.rerun()
-            
+
 if __name__ == "__main__":
     create_streamlit_app()
-    
