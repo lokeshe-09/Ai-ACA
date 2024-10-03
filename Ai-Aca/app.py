@@ -294,7 +294,7 @@ def set_page_config():
 
 def welcome_screen():
     st.markdown('<h1 class="main-title">Welcome to AI ACA ✨</h1>', unsafe_allow_html=True)
-    
+    st.markdown('<p style="font-size: 1.1rem;">Enter a name to enter into the platform:</p>', unsafe_allow_html=True)
     username = st.text_input(
         label="Username",  # Add a non-empty label
         key="welcome_input", 
@@ -403,19 +403,27 @@ def chat_interface():
                         response_placeholder.markdown('I apologize, but I\'m currently experiencing difficulties generating an image. Please try again later.')
 
 def website_analysis_interface():
-    url = st.text_input("Enter website URL:")
+    url = st.text_input("Enter website URL:", placeholder="https://aicraftalchemy.github.io/")
     website_question = st.text_area("Enter your question about the website:", height=100, key="website_question_input")
     if st.button("Analyze"):
         if url and website_question:
+            # Add https:// if not present
+            if not url.startswith(('http://', 'https://')):
+                url = 'https://' + url
+
             response_placeholder = st.empty()
             with st.spinner(get_random_processing_message()):
-                analysis, success = st.session_state.llama_chain.analyze_website(url, website_question, response_placeholder)
-                if success:
-                    st.markdown('<div class="response-area">', unsafe_allow_html=True)
-                    st.write("Analysis:", analysis)
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(analysis)
+                try:
+                    analysis, success = st.session_state.llama_chain.analyze_website(url, website_question, response_placeholder)
+                    if success:
+                        st.markdown('<div class="response-area">', unsafe_allow_html=True)
+                        st.write("Analysis:", analysis)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        st.error("We're sorry, but we couldn't analyze the website at this time. Please try again later.")
+                except Exception as e:
+                    st.error("We encountered an issue while analyzing the website. Please check the URL and try again.")
+                    logging.error(f"Error in website analysis: {str(e)}")
         else:
             st.warning("Please enter both a URL and a question.")
 
@@ -487,7 +495,7 @@ def create_streamlit_app():
     # Footer with swap buttons
     st.markdown("""
     <div class='footer'>
-    Developed by <a href='https://aicraftalchemy.github.io'>Ai Craft Alchemy</a><br>
+    Developed by <a href='https://www.linkedin.com/in/lokesh-e-60a583201'>Ai Craft Alchemy</a><br>
     Connect with us: <a href='tel:+917661081043'>+91 7661081043</a>
     </div>
     """, unsafe_allow_html=True)
