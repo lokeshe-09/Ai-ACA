@@ -498,10 +498,10 @@ def create_streamlit_app():
     if st.session_state.current_interface == "chat":
         with col1:
             if st.session_state.current_mode == "chat":
-                mode_label = "AI Chat 🤖"
+                mode_label = "Your are AI Chat 🤖"
                 swap_label = "🔄 Swap to Image Generator 🖼️"
             else:
-                mode_label = "Image Generator 🖼️"
+                mode_label = "You are in Image Generator 🖼️"
                 swap_label = "🔄 Swap to AI Chat 🤖"
 
             st.markdown(f'<p style="text-align: left ; font-weight: bold;">{mode_label}</p>', unsafe_allow_html=True)
