@@ -298,12 +298,12 @@ def welcome_screen():
     username = st.text_input(
         label="Username",  # Add a non-empty label
         key="welcome_input", 
-        placeholder="Enter your AI persona (e.g., QuantumDreamer42)",
+        placeholder="Enter your Name here (e.g., QuantumDreamer42)",
         help="Your unique identifier in the AI ACA universe",
         label_visibility="collapsed"  # Hide the label visually
     )
     
-    enter_button = st.button("🚀 Launch Your AI Journey", key="enter_button")
+    enter_button = st.button("🚀 Get Started with AI ACA", key="enter_button")
     
     st.markdown("""
     <p style="font-size: 1.2rem; text-align: center; margin-bottom: 2rem;">
