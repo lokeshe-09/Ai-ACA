@@ -303,7 +303,7 @@ def welcome_screen():
         label_visibility="collapsed"  # Hide the label visually
     )
     
-    enter_button = st.button("🚀 Get Started with AI ACA", key="enter_button")
+    enter_button = st.button("🚀 Click Here to Get Started with AI ACA", key="enter_button")
     
     st.markdown("""
     <p style="font-size: 1.2rem; text-align: center; margin-bottom: 2rem;">
