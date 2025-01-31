@@ -47,7 +47,7 @@ class LlamaAIChain:
         return ChatGroq(
             temperature=0.7,
             groq_api_key=self.api_keys[self.current_api_key_index],
-            model_name="llama-3.1-70b-versatile"
+            model_name="llama-3.3-70b-versatile"
         )
 
     def _switch_api_key(self, index):
